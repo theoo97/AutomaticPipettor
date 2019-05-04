@@ -1,0 +1,2 @@
+adb devices
+adb -s <device name> reverse tcp:8081 tcp:8081
