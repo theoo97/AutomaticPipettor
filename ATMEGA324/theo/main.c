@@ -8,8 +8,6 @@
 
 #include "mechanical_system.h"
 
-int16_t speed = 1000;
-
 mechanical_system mechanical_systems[1];
 
 void delay_ms(uint16_t count) {
@@ -24,17 +22,11 @@ int get_delay_from_speed(int speed) {
 }
 
 
-
-
 /*****************************************************************************
  ***************************** Bluetooth Stuff *******************************
  *****************************************************************************/
 
-#define CMD_BUFSIZE 100
-#define MOTOR1	1
-#define MOTOR2	2
-
-void USART0_init() {
+void bluetooth_init() {
         // Setează baud rate la 9600.
         UBRR0H = 0;
         UBRR0L = 103;
@@ -47,7 +39,7 @@ void USART0_init() {
         UCSR0C |= (2 << UCSZ00);
 }
 
-void USART0_transmit(unsigned char data) {
+void bluetooth_send_char(char data) {
         // Asteapta pana cand buffer-ul e gol.
         while(!(UCSR0A & (1<<UDRE0)));
 
@@ -55,72 +47,37 @@ void USART0_transmit(unsigned char data) {
         UDR0 = data;
 }
 
+void bluetooth_send(char *buffer, int size) {
+	int i;
+	for (i = 0; i < size; i++) {
+		bluetooth_send_char(buffer[i]);
+	}
+}
+
 volatile char cmd[CMD_BUFSIZE];
 volatile int cmd_i = 0;
 
 void parse_and_execute_cmd() {
-	int device_number;
-	char *cmd_token, *token;
+	char cmd_cpy[CMD_BUFSIZE];
+	strcpy(cmd_cpy, (char *)cmd);
 
-	int index = 0;
+	// Execute command on a single mechanical system.
+	ms_execute(&mechanical_systems[0], cmd_cpy);
 
-	cmd_token = strtok((char*)cmd, " ");
-	if (!cmd_token) {
-		return;
-	}
-
-	token = strtok(NULL, " ");
-	if (!token) {
-		return;
-	}
-
-	device_number = atoi(token);
-
-	if (strcmp(token, "MOVEUP") == 0) {
-		if (device_number == MOTOR1) {
-			mechanical_systems[index].direction1 = DIRECTION_UP;
-                        mechanical_systems[index].motor1_moving = 1;
-		} else if (device_number == MOTOR2) {
-			mechanical_systems[index].direction2 = DIRECTION_UP;
-			mechanical_systems[index].motor2_moving = 1;
-		}
-	}
-	else if (strcmp(token, "MOVEDOWN") == 0) {
-		if (device_number == MOTOR1) {
-			mechanical_systems[index].direction1 = DIRECTION_DOWN;
-			mechanical_systems[index].motor1_moving = 1;
-		} else if (device_number == MOTOR2) {
-			mechanical_systems[index].direction2 = DIRECTION_DOWN;
-			mechanical_systems[index].motor2_moving = 1;
-		}
-	}
-	else if (strcmp(token, "STOPMOVE") == 0) {
-		if (device_number == MOTOR1) {
-			mechanical_systems[index].motor1_moving = 0;
-		} else if (device_number == MOTOR2) {
-			mechanical_systems[index].motor2_moving = 0;
-		}
-	}
-	else if (strcmp(token, "SETSPEED") == 0) {
-		token = strtok(NULL, " ");
-		if (!token) {
-			return;
-		}
-
-		int speed = atoi(token);
-
-		if (device_number == MOTOR1) {
-			mechanical_systems[index].speed1 = speed;
-		}
-		else if (device_number == MOTOR2) {
-			mechanical_systems[index].speed2 = speed;
-		}
-        }
+	// Print executed command to terminal.
+	/*
+	bluetooth_send((char *)"Command: ", 9);
+	bluetooth_send((char *)cmd, cmd_i + 1);
+	bluetooth_send((char *)"\n", 1);
+	*/
+	// Print mechanical system state to terminal.
+	char str[TO_STR_BUFSIZE];
+	to_string(&mechanical_systems[0], str);
+	bluetooth_send(str, strlen((const char *)str));
 }
 
 ISR(USART0_RX_vect) {
         char data = UDR0;
-        USART0_transmit(data);
 
         cmd[cmd_i] = data;
 
@@ -143,64 +100,16 @@ int main() {
 	DDRA |= (1 << PA7) | (1 << PA6) | (1 << PA5) | (1 << PA4);
 
 	int i;
-
 	for (i = 0; i < 4; i++) {
 		PORTD ^= (1 << PD7);
                 delay_ms(50);
 	}
 
-
 	cli();
-	USART0_init();
+	bluetooth_init();
 	sei();
 
+	run_mechanical_systems(mechanical_systems, 1);
 
-	PORTD ^= (1 << PD7);
-
-
-	PORTA |= (1 << PA1);
-
-	i = 0;
-	while(1) {
-		// Aprindere led.
-		//PORTD ^= (1 << PD7);
-
-
-		if (!(PINB &(1 << PB2)))
-                {
-			PORTD ^= (1 << PD7);
-			PORTA ^= (1 << PA1);
-
-			USART0_transmit('A' + i);
-			i = (i + 1) % 26;
-
-			delay_ms(200);
-		}
-
-
-		PORTA ^= (1 << PA0);
-		delay_ms(20);
-
-	}
-	/*
-	while(1) {
-		int16_t delay_step = get_delay_from_speed(speed);
-
-		if (!(PINB &(1 << PB2)))
-		{
-			PORTA = (1 << PA7);
-			delay_ms(delay_step);
-
-			PORTA = (1 << PA6);
-			delay_ms(delay_step);
-
-			PORTA = (1 << PA5);
-			delay_ms(delay_step);
-
-			PORTA = (1 << PA4);
-			delay_ms(delay_step);
-		}
-	}
-	*/
 	return 0;
 }
