@@ -1,13 +1,14 @@
 #define MAX_SPEED       1000
 #define DELAY_CONST     2000
 
-#define DIRECTION_LEFT  0
-#define DIRECTION_RIGHT 1
+#define DIRECTION_UP  0
+#define DIRECTION_DOWN 1
 
 typedef struct mechanical_system {
 	int direction1, direction2;
 	int speed1, speed2;
 	int height1, height2;
+	int motor1_moving, motor2_moving;
 } mechanical_system;
 
 void set_speed1(mechanical_system *ms, int speed) {
@@ -30,7 +31,7 @@ void set_direction1(mechanical_system *ms, int direction) {
 		return;
 	}
 
-	if (direction != DIRECTION_LEFT && direction != DIRECTION_RIGHT) {
+	if (direction != DIRECTION_UP && direction != DIRECTION_DOWN) {
 		return;
 	}
 
@@ -42,7 +43,7 @@ void set_direction2(mechanical_system *ms, int direction) {
 		return;
 	}
 
-	if (direction != DIRECTION_LEFT && direction != DIRECTION_RIGHT) {
+	if (direction != DIRECTION_UP && direction != DIRECTION_DOWN) {
 		return;
 	}
 

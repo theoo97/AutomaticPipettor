@@ -1,11 +1,11 @@
-all: lab0.hex
+all: main.hex
 
-lab0.hex: lab0.elf
+main.hex: main.elf
 	avr-objcopy  -j .text -j .data -O ihex $^ $@
-	avr-size lab0.elf
+	avr-size main.elf
 
-lab0.elf: lab0.c
+main.elf: main.c
 	avr-g++ -mmcu=atmega324p -DF_CPU=16000000 -Os -Wall -o $@ $^
 
 clean:
-	rm -rf lab0.elf lab0.hex
+	rm -rf main.elf main.hex
