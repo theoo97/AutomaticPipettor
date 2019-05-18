@@ -7,10 +7,10 @@
 #include <stdlib.h>
 #include <util/delay.h>
 
-#define MAXCLK		10000
+#define MAXCLK		20000
 
 #define MAX_SPEED       1000
-#define DELAY_CONST     2000
+#define DEFAULT_SPEED	500
 
 #define DIRECTION_UP  0
 #define DIRECTION_DOWN 1
@@ -165,38 +165,39 @@ void run_mechanical_systems(mechanical_system *ms, size_t size) {
 	while(1) {
 		// Control each mechanical system, on eack clk step.
 		for (unsigned int i = 0; i < size; i++) {
+			if (ms[i].speed1 == 0) {
+				ms[i].speed1 = DEFAULT_SPEED;
+			}
+			if (ms[i].speed2 == 0) {
+				ms[i].speed2 = DEFAULT_SPEED;
+			}
+
+			// Control motor 1.
+
 			// Control motor 2.
-			int state = clk % 8;
+			int speed = ms[i].speed2 != 0 ? ms[i].speed2 : 500;
+			const int delay_mot2 = (2 * MAX_SPEED) / speed;
+			int state = clk % (4 * delay_mot2);
 			if(ms[i].motor2_moving && ms[i].direction2 == DIRECTION_UP) {
-				switch(state) {
-					case 0:
-						PORTA = (1 << PA7);
-						break;
-					case 2:
-						PORTA = (1 << PA6);
-						break;
-					case 4:
-						PORTA = (1 << PA5);
-						break;
-					case 6:
-						PORTA = (1 << PA4);
-						break;
+				if (state == 0) {
+					PORTA = (1 << PA7);
+				} else if (state == delay_mot2) {
+					PORTA = (1 << PA6);
+				} else if (state == delay_mot2 * 2) {
+					PORTA = (1 << PA5);
+				} else if (state == delay_mot2 * 3) {
+					PORTA = (1 << PA4);
 				}
 			}
 			if(ms[i].motor2_moving && ms[i].direction2 == DIRECTION_DOWN) {
-				switch(state) {
-					case 0:
-						PORTA = (1 << PA4);
-						break;
-					case 2:
-						PORTA = (1 << PA5);
-						break;
-					case 4:
-						PORTA = (1 << PA6);
-						break;
-					case 6:
-						PORTA = (1 << PA7);
-						break;
+				if (state == 0) {
+					PORTA = (1 << PA4);
+				} else if (state == delay_mot2) {
+					PORTA = (1 << PA5);
+				} else if (state == delay_mot2 * 2) {
+					PORTA = (1 << PA6);
+				} else if (state == delay_mot2 * 3) {
+					PORTA = (1 << PA7);
 				}
 			}
 		}
