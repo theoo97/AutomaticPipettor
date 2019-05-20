@@ -91,9 +91,6 @@ int main() {
 	// Pin iesire.
 	DDRD |= (1 << PD7);
 
-	// Pin iesire.
-	DDRA |= (1 << PA7) | (1 << PA6) | (1 << PA5) | (1 << PA4);
-
 	int i;
 	for (i = 0; i < 4; i++) {
 		PORTD ^= (1 << PD7);
@@ -104,6 +101,7 @@ int main() {
 	bluetooth_init();
 	sei();
 
+	init_mechanical_systems(mechanical_systems, 1);
 	run_mechanical_systems(mechanical_systems, 1);
 
 	return 0;

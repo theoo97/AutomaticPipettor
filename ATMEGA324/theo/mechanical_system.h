@@ -158,6 +158,18 @@ void to_string(mechanical_system *ms, char *str) {
 		ms->motor2_moving);
 }
 
+void init_mechanical_systems(mechanical_system *ms, size_t size) {
+	// Pin iesire.
+        DDRA |= (1 << PA7) | (1 << PA6) | (1 << PA5) | (1 << PA4);
+
+	// Pin iesire (trig).
+	DDRB |= (1 << PB0);
+
+	// Pin intrare (echo).
+	DDRB &= ~(1 << PB1);
+	PORTB |= (1 << PB1);
+}
+
 // Main program loop. Runs all the mechanical systems.
 void run_mechanical_systems(mechanical_system *ms, size_t size) {
 	// Main loop.
@@ -198,6 +210,30 @@ void run_mechanical_systems(mechanical_system *ms, size_t size) {
 					PORTA = (1 << PA6);
 				} else if (state == delay_mot2 * 3) {
 					PORTA = (1 << PA7);
+				}
+			}
+			ms[i].height1 = 10;
+			// Measure distance every 200ms.
+			if (clk % 100 == 0) {
+				// Send trig pulse.
+				PORTB |= (1 << PB0);
+				_delay_us(10);
+				PORTB &= ~(1 << PB0);
+
+				// Wait pulse.
+				while(!(PINB & (1 << PB1)));
+
+				// Count sonic wave time.
+				int time = 0;
+				while(PINB & (1 << PB1)) {
+					time++;
+					_delay_us(1);
+				}
+
+				if (time < 0 ) {
+					ms[i].height2 = 0;
+				} else {
+					ms[i].height2 = ((time / 20) * 34 ) / 10;
 				}
 			}
 		}
