@@ -2,6 +2,7 @@
 #define MECHANICAL_SYSTEM_H
 
 #include <avr/io.h>
+#include <avr/eeprom.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -19,6 +20,11 @@
 #define CMD_BUFSIZE 100
 #define MOTOR1  1
 #define MOTOR2  2
+#define MIN_HEIGHT1 60
+#define MAX_HEIGHT1 250
+
+#define MIN_HEIGHT2 30
+#define MAX_HEIGHT2 80
 
 typedef struct mechanical_system {
 	int direction1, direction2;
@@ -158,9 +164,18 @@ void to_string(mechanical_system *ms, char *str) {
 		ms->motor2_moving);
 }
 
+struct settings_t
+{
+	int height2;
+};
+
 void init_mechanical_systems(mechanical_system *ms, size_t size) {
+	struct settings_t settings;
+
 	// Pin iesire.
         DDRA |= (1 << PA7) | (1 << PA6) | (1 << PA5) | (1 << PA4);
+        DDRC |= (1 << PC7) | (1 << PC6) | (1 << PC5) | (1 << PC4);
+
 
 	// Pin iesire (trig).
 	DDRB |= (1 << PB0);
@@ -168,6 +183,134 @@ void init_mechanical_systems(mechanical_system *ms, size_t size) {
 	// Pin intrare (echo).
 	DDRB &= ~(1 << PB1);
 	PORTB |= (1 << PB1);
+
+	// Write setting to permanent memory.
+//	struct settings_t settings_write;
+//	settings_write.height1 = 50;
+//	eeprom_write_block((const void*)&settings_write, (void*)0, sizeof(settings_t));
+
+	// Read settings from permanent memory.
+   	eeprom_read_block((void*)&settings, (void*)0, sizeof(settings_t));
+
+	ms[0].height2 = settings.height2;
+}
+
+void control_motor1(mechanical_system *ms, int clk) {
+	if (!ms) {
+		return;
+	}
+
+	if (ms->speed1 == 0) {
+		ms->speed1 = DEFAULT_SPEED;
+	}
+
+	int speed = ms->speed1;
+	const int delay_mot1 = (2 * MAX_SPEED) / speed;
+	int state = clk % (4 * delay_mot1);
+
+	if(ms->motor1_moving &&
+	ms->direction1 == DIRECTION_UP &&
+	ms->height1 < MAX_HEIGHT1) {
+		if (state == 0) {
+			PORTA = (1 << PA7);
+		} else if (state == delay_mot1) {
+			PORTA = (1 << PA6);
+		} else if (state == delay_mot1 * 2) {
+			PORTA = (1 << PA5);
+		} else if (state == delay_mot1 * 3) {
+			PORTA = (1 << PA4);
+		}
+	}
+	if(ms->motor1_moving &&
+	ms->direction1 == DIRECTION_DOWN &&
+	ms->height1 > MIN_HEIGHT1) {
+		if (state == 0) {
+			PORTA = (1 << PA4);
+		} else if (state == delay_mot1) {
+			PORTA = (1 << PA5);
+		} else if (state == delay_mot1 * 2) {
+			PORTA = (1 << PA6);
+		} else if (state == delay_mot1 * 3) {
+			PORTA = (1 << PA7);
+		}
+	}
+}
+
+void control_motor2(mechanical_system *ms, int clk) {
+	if (!ms) {
+		return;
+	}
+
+	if (ms->speed2 == 0) {
+		ms->speed2 = DEFAULT_SPEED;
+	}
+
+	int speed = ms->speed2;
+	const int delay_mot2 = (2 * MAX_SPEED) / speed;
+	int state = clk % (4 * delay_mot2);
+
+	if(ms->motor2_moving &&
+	ms->direction2 == DIRECTION_UP &&
+	ms->height2 < MAX_HEIGHT2) {
+		if (state == 0) {
+			PORTC = (1 << PC3);
+		} else if (state == delay_mot2) {
+			PORTC = (1 << PC2);
+		} else if (state == delay_mot2 * 2) {
+			PORTC = (1 << PC1);
+		} else if (state == delay_mot2 * 3) {
+			PORTC = (1 << PC0);
+		}
+	}
+	if(ms->motor2_moving &&
+	ms->direction2 == DIRECTION_DOWN &&
+	ms->height2 > MIN_HEIGHT2) {
+		if (state == 0) {
+			PORTC = (1 << PC0);
+		} else if (state == delay_mot2) {
+			PORTC = (1 << PC1);
+		} else if (state == delay_mot2 * 2) {
+			PORTC = (1 << PC2);
+		} else if (state == delay_mot2 * 3) {
+			PORTC = (1 << PC3);
+		}
+	}
+}
+
+void read_height1(mechanical_system *ms, int clk) {
+	// Send trig pulse.
+	PORTB |= (1 << PB0);
+	_delay_us(10);
+	PORTB &= ~(1 << PB0);
+
+	int time = 0;
+
+	// Wait pulse.
+	while(!(PINB & (1 << PB1))) {
+		time++;
+		_delay_us(1);
+
+		if (time > 10000) {
+			break;
+		}
+	}
+
+	// Count sonic wave time.
+	time = 0;
+	while(PINB & (1 << PB1)) {
+		time++;
+		_delay_us(1);
+
+		if (time > 10000) {
+			break;
+		}
+	}
+
+	if (time < 0 ) {
+		ms->height1 = 0;
+	} else {
+		ms->height1 = ((time / 20) * 34 ) / 10;
+	}
 }
 
 // Main program loop. Runs all the mechanical systems.
@@ -177,64 +320,12 @@ void run_mechanical_systems(mechanical_system *ms, size_t size) {
 	while(1) {
 		// Control each mechanical system, on eack clk step.
 		for (unsigned int i = 0; i < size; i++) {
-			if (ms[i].speed1 == 0) {
-				ms[i].speed1 = DEFAULT_SPEED;
-			}
-			if (ms[i].speed2 == 0) {
-				ms[i].speed2 = DEFAULT_SPEED;
-			}
+			control_motor1(&ms[i], clk);
+			control_motor2(&ms[i], clk);
 
-			// Control motor 1.
-
-			// Control motor 2.
-			int speed = ms[i].speed2 != 0 ? ms[i].speed2 : 500;
-			const int delay_mot2 = (2 * MAX_SPEED) / speed;
-			int state = clk % (4 * delay_mot2);
-			if(ms[i].motor2_moving && ms[i].direction2 == DIRECTION_UP) {
-				if (state == 0) {
-					PORTA = (1 << PA7);
-				} else if (state == delay_mot2) {
-					PORTA = (1 << PA6);
-				} else if (state == delay_mot2 * 2) {
-					PORTA = (1 << PA5);
-				} else if (state == delay_mot2 * 3) {
-					PORTA = (1 << PA4);
-				}
-			}
-			if(ms[i].motor2_moving && ms[i].direction2 == DIRECTION_DOWN) {
-				if (state == 0) {
-					PORTA = (1 << PA4);
-				} else if (state == delay_mot2) {
-					PORTA = (1 << PA5);
-				} else if (state == delay_mot2 * 2) {
-					PORTA = (1 << PA6);
-				} else if (state == delay_mot2 * 3) {
-					PORTA = (1 << PA7);
-				}
-			}
-			ms[i].height1 = 10;
 			// Measure distance every 200ms.
 			if (clk % 100 == 0) {
-				// Send trig pulse.
-				PORTB |= (1 << PB0);
-				_delay_us(10);
-				PORTB &= ~(1 << PB0);
-
-				// Wait pulse.
-				while(!(PINB & (1 << PB1)));
-
-				// Count sonic wave time.
-				int time = 0;
-				while(PINB & (1 << PB1)) {
-					time++;
-					_delay_us(1);
-				}
-
-				if (time < 0 ) {
-					ms[i].height2 = 0;
-				} else {
-					ms[i].height2 = ((time / 20) * 34 ) / 10;
-				}
+				read_height1(&ms[i], clk);
 			}
 		}
 		clk++;

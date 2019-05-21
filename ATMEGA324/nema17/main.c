@@ -20,7 +20,7 @@ int main() {
 	DDRD |= (1 << PD7);
 
 	// Pin iesire.
-	DDRA |= (1 << PA7) | (1 << PA6) | (1 << PA5) | (1 << PA4);
+	DDRA |= (1 << PA0);
 
 	int i;
 
@@ -30,23 +30,10 @@ int main() {
 	}
 
 
-	PORTA |= (1 << PA1);
-
 	i = 0;
 	while(1) {
-		// Aprindere led.
-		//PORTD ^= (1 << PD7);
-
-
-		if (!(PINB &(1 << PB2)))
-                {
-			PORTD ^= (1 << PD7);
-			delay_ms(200);
-		}
-
-
 		PORTA ^= (1 << PA0);
-		delay_ms(40);
+		delay_ms(50);
 
 	}
 
