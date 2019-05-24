@@ -21,7 +21,7 @@
 #define MOTOR1  1
 #define MOTOR2  2
 #define MIN_HEIGHT1 60
-#define MAX_HEIGHT1 250
+#define MAX_HEIGHT1 170
 
 #define MIN_HEIGHT2 30
 #define MAX_HEIGHT2 80
@@ -323,8 +323,8 @@ void run_mechanical_systems(mechanical_system *ms, size_t size) {
 			control_motor1(&ms[i], clk);
 			control_motor2(&ms[i], clk);
 
-			// Measure distance every 200ms.
-			if (clk % 100 == 0) {
+			// Measure distance every 1s.
+			if (clk % 1000 == 0) {
 				read_height1(&ms[i], clk);
 			}
 		}
